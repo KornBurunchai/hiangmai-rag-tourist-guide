@@ -51,7 +51,7 @@ st.markdown('<div class="sub-header">ระบบตอบคำถามกา�
 # Secrets & API Key Setup
 # ---------------------------------------------------------
 # 🔑 ใส่ Groq API Key ของคุณตรงนี้ได้เลยครับ
-groq_api_key = "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"
+groq_api_key = ""
 
 # Priority 1: Check Streamlit Secrets (ถ้ามีตั้งไว้ใน secrets จะใช้ในนี้แทน)
 if "GROQ_API_KEY" in st.secrets:
