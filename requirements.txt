@@ -1,0 +1,8 @@
+streamlit>=1.30.0
+groq>=0.4.0
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4
+langchain-text-splitters>=0.0.1
+pandas>=2.0.0
+numpy>=1.24.0
+pythainlp>=4.0.0
