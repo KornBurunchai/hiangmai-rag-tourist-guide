@@ -44,24 +44,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🏔️ แอ่วเชียงใหม่ RAG Tourist Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🏔️️ แอ่วเชียงใหม่ RAG Tourist Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">ระบบตอบคำถามการท่องเที่ยวจังหวัดเชียงใหม่จากคลังเอกสารความรู้แบบแม่นยำ อ้างอิงแหล่งที่มาได้</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # Secrets & API Key Setup
 # ---------------------------------------------------------
-# 🔑 ใส่ Groq API Key ของคุณตรงนี้ได้เลยครับ
-groq_api_key = "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"
+groq_api_key = ""
 
-# Priority 1: Check Streamlit Secrets (ถ้ามีตั้งไว้ใน secrets จะใช้ในนี้แทน)
+# Priority 1: Check Streamlit Secrets (กรณีรันบน Streamlit Cloud)
 if "GROQ_API_KEY" in st.secrets:
     groq_api_key = st.secrets["GROQ_API_KEY"]
+else:
+    groq_api_key = os.getenv("GROQ_API_KEY", "")
 
 # Priority 2: Sidebar Input for Local Testing
 with st.sidebar:
     st.header("⚙️ การตั้งค่าระบบ")
     st.markdown("---")
-    if not groq_api_key or groq_api_key == "ใส่_GROQ_API_KEY_ของคุณที่นี่":
+    if not groq_api_key:
         groq_api_key = st.text_input("กรอก Groq API Key:", type="password")
         st.caption("🔒 *ระบุ API Key เพื่อเริ่มใช้งาน*")
     else:
@@ -180,14 +181,14 @@ if user_query:
         st.markdown(user_query)
 
     # 2. Check API Key
-    if not groq_api_key or groq_api_key == "ใส่_GROQ_API_KEY_ของคุณที่นี่":
-        st.warning("⚠️ กรุณากรอก Groq API Key ที่แถบด้านข้าง (Sidebar) หรือระบุในโค้ดก่อนใช้งาน")
+    if not groq_api_key:
+        st.warning("⚠️ ไม่พบ Groq API Key กรุณากรอก Key ที่ Sidebar หรือระบุใน Streamlit Secrets ก่อนใช้งาน")
         st.stop()
 
     client = Groq(api_key=groq_api_key)
 
-    # 3. Retrieve Context via FAISS
-    retrieved_results = search_context(user_query, top_k=3, score_threshold=0.30)
+    # 3. Retrieve Context via FAISS (ใช้น้ำหนักสำหรับคำค้นสั้นๆ)
+    retrieved_results = search_context(user_query, top_k=5, score_threshold=0.15)
     
     # Prepare Context String for Prompt
     if retrieved_results:
@@ -198,16 +199,15 @@ if user_query:
     else:
         context_str = "ไม่พบข้อมูลที่เกี่ยวข้องในคลังเอกสารความรู้"
 
-    # 4. Strict RAG Prompt Engineering
-    system_prompt = f"""คุณคือไกด์ท่องเที่ยวเชียงใหม่ผู้สุภาพ มีหน้าที่ตอบคำถามและแนะนำการท่องเที่ยวโดยอิงตาม "บริบทคลังข้อมูล (Context)" ที่กำหนดให้เท่านั้น
+    # 4. Prompt Engineering
+    system_prompt = f"""คุณคือไกด์แนะนำการท่องเที่ยวเชียงใหม่ผู้สุภาพและรอบรู้
 
-กฎที่คุณต้องปฏิบัติตามอย่างเคร่งครัด:
-1. ตอบคำถามหรือสรุปข้อมูลโดยใช้ข้อมูลจาก [บริบทคลังข้อมูล (Context)] ด้านล่างนี้เท่านั้น
-2. หากผู้ใช้พิมพ์คำถามสั้นๆ หรือคีย์เวิร์ด (เช่น "ตลาดนัด", "ดอยอินทนนท์", "อาหารเหนือ") ให้สรุปรายละเอียดของสถานที่/หมวดหมู่นั้นๆ ที่พบในบริบทมาแนะนำผู้ใช้ทันที
-3. หากใน [บริบทคลังข้อมูล (Context)] ไม่พบข้อมูลที่เกี่ยวข้องกับเรื่องที่ผู้ใช้ถามเลยแม้แต่น้อย ให้ตอบปฏิเสธอย่างสุภาพว่า: "ขออภัยครับ/ค่ะ ไม่พบข้อมูลเกี่ยวกับเรื่องนี้ในคลังเอกสารความรู้การท่องเที่ยวเชียงใหม่ที่มีอยู่"
-4. ห้ามคิดหรือคาดเดาข้อมูลเองนอกเหนือจากคลังข้อมูลที่มีอยู่โดยเด็ดขาด
-5. คำตอบต้องมีความกระชับ อ่านง่าย สุภาพ และจัดหมวดหมู่ให้อ่านสบายตา
-6. ระบุชื่อไฟล์อ้างอิงที่ใช้ในการตอบสั้นๆ ไว้ท้ายคำตอบ
+กฎในการตอบคำถาม:
+1. ให้ตอบคำถามหรือให้ข้อมูลโดยอิงจาก [บริบทคลังข้อมูล (Context)] ด้านล่างนี้เท่านั้น
+2. หากผู้ใช้พิมพ์เพียง "ชื่อสถานที่" หรือ "คำค้นหาสั้นๆ" (เช่น ม่อนแจ่ม, ตลาดนัด, ดอยอินทนนท์, นิมมาน): ให้ดึงข้อมูล รายละเอียด ไฮไลท์ เวลาเปิด-ปิด หรือการเดินทางของสถานที่นั้นจาก [บริบทคลังข้อมูล (Context)] มาสรุปแนะนำให้อย่างสมบูรณ์ทันที
+3. หากใน [บริบทคลังข้อมูล (Context)] ไม่พบข้อมูลที่เกี่ยวข้องกับคำที่ผู้ใช้พิมพ์มาเลยแม้แต่น้อย ให้ตอบปฏิเสธอย่างสุภาพว่า: "ขออภัยครับ/ค่ะ ไม่พบข้อมูลเกี่ยวกับเรื่องนี้ในคลังเอกสารความรู้การท่องเที่ยวเชียงใหม่ที่มีอยู่"
+4. ห้ามคิดหรือคาดเดาข้อมูลเองนอกเหนือจากที่มีใน [บริบทคลังข้อมูล (Context)]
+5. ตอบให้เป็นระเบียบ อ่านง่าย น่าสนใจ และระบุชื่อไฟล์อ้างอิงไว้ท้ายคำตอบ
 
 [บริบทคลังข้อมูล (Context)]:
 {context_str}
